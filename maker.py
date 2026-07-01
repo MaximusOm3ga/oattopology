@@ -6,7 +6,10 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from ollama import Client
+from dotenv import load_dotenv
+from openai import OpenAI
 
+load_dotenv()
 
 from OAT.DataUtils._utils import BatchDict
 from OAT.Models import NFAE, CTOPUNet
@@ -30,8 +33,16 @@ Return ONLY valid JSON with this schema:
 
 Return ONLY the JSON, no explanation, no markdown fences.
 """
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "ollama").lower()
 
-def parse_problem(description: str) -> dict:
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+
+def _clean_json(raw: str) -> dict:
+    raw = raw.strip()
+    raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    return json.loads(raw)
+
+def _parse_with_ollama(description: str) -> dict:
     client = Client(host=os.environ.get('OLLAMA_HOST', 'http://localhost:11434'))
     response = client.chat(
         model='llama3.2:1b',
@@ -40,9 +51,37 @@ def parse_problem(description: str) -> dict:
             {"role": "user", "content": description}
         ]
     )
-    raw = response["message"]["content"].strip()
-    raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    return json.loads(raw)
+    return _clean_json(response["message"]["content"])
+
+def _parse_with_groq(description: str) -> dict:
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY not set in environment")
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.groq.com/openai/v1",
+    )
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": description}
+        ],
+        temperature=0.2,
+    )
+    return _clean_json(response.choices[0].message.content)
+
+def parse_problem(description: str, backend: str = None) -> dict:
+    backend = (backend or LLM_BACKEND).lower()
+    if backend == "groq":
+        print("Making external call")
+        return _parse_with_groq(description)
+    elif backend == "ollama":
+        print("Using local inference")
+        return _parse_with_ollama(description)
+    else:
+        raise ValueError(f"Unknown LLM backend: {backend}")
 
 
 
@@ -181,7 +220,6 @@ def visualize(samples, params: dict, bc_array: np.ndarray, load_array: np.ndarra
     fig.suptitle(title, fontsize=11)
     plt.tight_layout()
     plt.savefig("result.png", dpi=150)
-    plt.show()
     print("Saved to result.png")
 
 def semantic_to_conditions(params: dict):
@@ -223,7 +261,6 @@ def semantic_to_conditions(params: dict):
     def normalize(s):
         return s.lower().replace("_", "-").strip()
 
-    # Fixed edges
     for edge in params.get("fixed_edges", []):
         key = normalize(edge)
         if key in edge_map:
