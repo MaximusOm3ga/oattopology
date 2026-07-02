@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>oattopology</title>
+<style>
+  /* ── tokens ── */
+  :root {
+    --bg:        #0d0f12;
+    --surface:   #13161b;
+    --border:    #1f2530;
+    --accent:    #4fc3f7;
+    --accent-dim:#1a3a4a;
+    --solid:     #e2e8f0;
+    --muted:     #5a6478;
+    --danger:    #f87171;
+    --green:     #6ee7b7;
+    --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --sans:      'Inter', system-ui, sans-serif;
+    --radius:    6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--solid);
+    font-family: var(--sans);
+    font-size: 14px;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 48px 1fr;
+    grid-template-columns: 320px 1fr;
+    grid-template-areas:
+      "header header"
+      "sidebar main";
+    overflow: hidden;
+  }
+
+  /* ── header ── */
+  header {
+    grid-area: header;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .06em;
+    color: var(--accent);
+  }
+  .logo span { color: var(--muted); }
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 2px 7px;
+    border-radius: 99px;
+    letter-spacing: .05em;
+  }
+
+  /* ── sidebar ── */
+  aside {
+    grid-area: sidebar;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .chat-history::-webkit-scrollbar { width: 4px; }
+  .chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .msg-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    line-height: 1.55;
+    font-size: 13px;
+  }
+  .msg.user .msg-bubble { border-color: var(--accent-dim); color: var(--accent); }
+  .msg.system .msg-bubble { color: var(--muted); font-style: italic; }
+
+  /* params block */
+  .params-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .params-block .key   { color: var(--accent); }
+  .params-block .val   { color: var(--green); }
+  .params-block .punc  { color: var(--muted); }
+
+  /* input area */
+  .input-area {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--solid);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 9px 12px;
+    resize: none;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .btn-row { display: flex; gap: 8px; }
+  button {
+    flex: 1;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+    text-transform: uppercase;
+  }
+  button:hover  { background: #1f4a5e; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  button.secondary:hover { border-color: var(--muted); color: var(--solid); background: transparent; }
+
+  /* ── main ── */
+  main {
+    grid-area: main;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  main::-webkit-scrollbar { width: 4px; }
+  main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* empty state */
+  .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+  }
+  .empty-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 52px);
+    grid-template-rows: repeat(2, 52px);
+    gap: 4px;
+    opacity: .25;
+  }
+  .empty-cell {
+    border-radius: 4px;
+    background: var(--border);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .empty-cell:nth-child(2n)   { animation-delay: .3s; }
+  .empty-cell:nth-child(3n)   { animation-delay: .6s; }
+  .empty-cell:nth-child(4n)   { animation-delay: .9s; }
+  @keyframes pulse {
+    0%,100% { opacity: .4; }
+    50%      { opacity: 1; }
+  }
+  .empty p { font-family: var(--mono); font-size: 12px; letter-spacing: .05em; }
+
+  /* loading state */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    flex: 1;
+  }
+  .density-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 28px);
+    grid-template-rows: repeat(4, 28px);
+    gap: 3px;
+  }
+  .density-cell {
+    border-radius: 3px;
+    animation: coalesce 1.8s ease-in-out infinite;
+  }
+  @keyframes coalesce {
+    0%   { background: var(--border);    opacity: .3; }
+    50%  { background: var(--accent);    opacity: .8; }
+    100% { background: var(--border);    opacity: .3; }
+  }
+  .loading-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  /* results */
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .results-header h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sample-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .sample-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .15s, transform .1s;
+    position: relative;
+  }
+  .sample-card:hover  { border-color: var(--muted); transform: translateY(-1px); }
+  .sample-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  .sample-card img {
+    width: 100%;
+    aspect-ratio: auto;
+    display: block;
+    image-rendering: pixelated;
+  }
+  .sample-label {
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .06em;
+    color: var(--muted);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sample-label .sel-badge {
+    display: none;
+    color: var(--accent);
+  }
+  .sample-card.selected .sel-badge { display: inline; }
+
+  .export-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .export-bar p {
+    flex: 1;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .export-bar p strong { color: var(--solid); }
+  .export-bar button {
+    flex: 0;
+    white-space: nowrap;
+    padding: 7px 16px;
+  }
+
+  .error-toast {
+    background: #1f0e0e;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">oat<span>/</span>topology</div>
+  <div class="badge">groq llama-3.1-8b</div>
+</header>
+
+<aside>
+  <div class="chat-history" id="chatHistory">
+    <div class="msg system">
+      <span class="msg-label">system</span>
+      <div class="msg-bubble">Describe a structural topology problem. You can refine it after seeing the results.</div>
+    </div>
+  </div>
+  <div class="input-area">
+    <textarea id="inputBox" rows="3"
+      placeholder="e.g. 200 x 100 beam, left edge fixed, downward load at center-right, 40% material"></textarea>
+    <div class="btn-row">
+      <button id="sendBtn" onclick="handleSend()">Generate</button>
+      <button id="refineBtn" class="secondary" onclick="handleRefine()" disabled>Refine</button>
+    </div>
+  </div>
+</aside>
+
+<main id="mainArea">
+  <div class="empty" id="emptyState">
+    <div class="empty-grid">
+      <div class="empty-cell"></div><div class="empty-cell"></div>
+      <div class="empty-cell"></div><div class="empty-cell"></div>
+      <div class="empty-cell"></div><div class="empty-cell"></div>
+      <div class="empty-cell"></div><div class="empty-cell"></div>
+    </div>
+    <p>describe a problem to generate topologies</p>
+  </div>
+</main>
+
+<script>
+  let currentJobId   = null;
+  let currentParams  = null;
+  let selectedSample = null;
+  let pollTimer      = null;
+
+  const chatHistory = document.getElementById('chatHistory');
+  const mainArea    = document.getElementById('mainArea');
+  const inputBox    = document.getElementById('inputBox');
+  const sendBtn     = document.getElementById('sendBtn');
+  const refineBtn   = document.getElementById('refineBtn');
+
+  // Enter to submit, Shift+Enter for newline
+  inputBox.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) handleSend();
+    }
+  });
+
+  function setLoading(state) {
+    sendBtn.disabled  = state;
+    refineBtn.disabled = state || !currentJobId;
+    inputBox.disabled  = state;
+  }
+
+  // ── chat helpers ────────────────────────────────────────────────────────
+
+  function addMsg(role, content) {
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${role}`;
+    wrap.innerHTML = `<span class="msg-label">${role === 'user' ? 'you' : role}</span>
+                      <div class="msg-bubble">${content}</div>`;
+    chatHistory.appendChild(wrap);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+  }
+
+  function addParams(params) {
+    const lines = JSON.stringify(params, null, 2)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"([^"]+)":/g, '<span class="key">"$1"</span><span class="punc">:</span>')
+      .replace(/: (".*?")/g, ': <span class="val">$1</span>')
+      .replace(/: (\d[\d.]*)/g, ': <span class="val">$1</span>')
+      .replace(/: (true|false|null)/g, ': <span class="val">$1</span>');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'msg';
+    wrap.innerHTML = `<span class="msg-label">parsed params</span>
+                      <div class="params-block">${lines}</div>`;
+    chatHistory.appendChild(wrap);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+  }
+
+  // ── main area helpers ────────────────────────────────────────────────────
+
+  function showLoading() {
+    let cells = '';
+    for (let i = 0; i < 32; i++) {
+      const delay = (Math.random() * 1.6).toFixed(2);
+      const lum   = Math.floor(20 + Math.random() * 60);
+      cells += `<div class="density-cell" style="animation-delay:${delay}s;background:hsl(200,40%,${lum}%)"></div>`;
+    }
+    mainArea.innerHTML = `
+      <div class="loading-state">
+        <div class="density-grid">${cells}</div>
+        <div class="loading-label">optimising topology&hellip;</div>
+      </div>`;
+  }
+
+  function showResults(images, params) {
+    selectedSample = null;
+    const W = params.width, H = params.height, vf = params.volume_fraction;
+
+    const cards = images.map((b64, i) => `
+      <div class="sample-card" id="card-${i}" onclick="selectSample(${i})">
+        <img src="data:image/png;base64,${b64}" alt="Sample ${i+1}"/>
+        <div class="sample-label">
+          <span>sample ${i+1}</span>
+          <span class="sel-badge">✓ selected</span>
+        </div>
+      </div>`).join('');
+
+    mainArea.innerHTML = `
+      <div class="results-header">
+        <h2>8 topology samples &mdash; ${W}&times;${H} &nbsp;|&nbsp; vf ${vf}</h2>
+      </div>
+      <div class="sample-grid">${cards}</div>
+      <div class="export-bar" id="exportBar" style="display:none">
+        <p><strong id="exportLabel">Sample selected</strong> &mdash; export as SVG for CAD import (units = mm)</p>
+        <button onclick="handleExport()">Export SVG</button>
+      </div>`;
+  }
+
+  function showError(msg) {
+    const el = document.createElement('div');
+    el.className = 'error-toast';
+    el.textContent = `Error: ${msg}`;
+    mainArea.prepend(el);
+    setTimeout(() => el.remove(), 6000);
+  }
+
+  // ── sample selection ─────────────────────────────────────────────────────
+
+  function selectSample(i) {
+    selectedSample = i;
+    document.querySelectorAll('.sample-card').forEach((c, idx) =>
+      c.classList.toggle('selected', idx === i));
+    const bar = document.getElementById('exportBar');
+    if (bar) {
+      bar.style.display = 'flex';
+      document.getElementById('exportLabel').textContent = `Sample ${i+1} selected`;
+    }
+  }
+
+  // ── polling ──────────────────────────────────────────────────────────────
+
+  function startPolling(jobId) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      const res  = await fetch(`/status/${jobId}`);
+      const data = await res.json();
+      if (data.status === 'done') {
+        clearInterval(pollTimer);
+        setLoading(false);
+        showResults(data.images, data.params);
+        refineBtn.disabled = false;
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        setLoading(false);
+        showError(data.error);
+      }
+    }, 1500);
+  }
+
+  // ── actions ──────────────────────────────────────────────────────────────
+
+  async function handleSend() {
+    const text = inputBox.value.trim();
+    if (!text) return;
+    inputBox.value = '';
+    addMsg('user', text);
+    setLoading(true);
+    showLoading();
+
+    try {
+      const res  = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: text })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Generate failed');
+
+      currentJobId  = data.job_id;
+      currentParams = data.params;
+      addParams(data.params);
+      startPolling(data.job_id);
+    } catch (e) {
+      setLoading(false);
+      showError(e.message);
+    }
+  }
+
+  async function handleRefine() {
+    const text = inputBox.value.trim();
+    if (!text || !currentJobId) return;
+    inputBox.value = '';
+    addMsg('user', text);
+    setLoading(true);
+    showLoading();
+
+    try {
+      const res  = await fetch('/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: currentJobId, instruction: text })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Refine failed');
+
+      currentJobId  = data.job_id;
+      currentParams = data.params;
+      addParams(data.params);
+      startPolling(data.job_id);
+    } catch (e) {
+      setLoading(false);
+      showError(e.message);
+    }
+  }
+
+  async function handleExport() {
+    if (selectedSample === null || !currentJobId) return;
+    const res = await fetch('/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: currentJobId, sample_index: selectedSample })
+    });
+    if (!res.ok) { showError('Export failed'); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `topology_sample_${selectedSample + 1}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
