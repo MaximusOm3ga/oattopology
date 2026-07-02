@@ -44,3 +44,10 @@ Results/*
 config.json
 */*.md
 *.pth
+
+Dockerfile
+
+compose.yaml
+
+*.sh
+
